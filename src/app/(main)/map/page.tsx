@@ -12,6 +12,8 @@ const GlobeMap = dynamic(
     }
 );
 
+import ErrorBoundary from "@/components/ErrorBoundary";
+
 export default function MapPage() {
 
     return (
@@ -47,7 +49,9 @@ export default function MapPage() {
             </div>
 
             <div className="absolute inset-0 z-0">
-                <GlobeMap />
+                <ErrorBoundary>
+                    <GlobeMap />
+                </ErrorBoundary>
             </div>
         </div>
     );

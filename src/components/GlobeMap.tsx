@@ -29,15 +29,8 @@ export default function GlobeMap() {
 
     // Calculate Sun Position & Lighting
     useEffect(() => {
-        // ... (existing helper code for sun position remains same, omitted for brevity if unchanged, but since this is replace_file_content I need to be careful not to delete it if I don't include it. 
-        // Actually, I can just target the specific chunks.)
-    }, [currentUser]); // Wait, I can't skip lines in replace_file_content like that if I target a large block.
+        let mounted = true;
 
-    // Better to do smaller chunks.
-
-
-    // Calculate Sun Position & Lighting
-    useEffect(() => {
         if (globeEl.current) {
             const globe = globeEl.current;
             const scene = globe.scene();
@@ -60,18 +53,29 @@ export default function GlobeMap() {
             const sunLng = (12 - utcHours) * 15;
             const sunLat = declination;
 
-            // Clean up old lights
-            const sunName = "RealTimeSun";
-            const ambientName = "GlobalAmbient";
-            scene.children.forEach((c: any) => {
-                if (c.name === sunName || c.name === ambientName) {
-                    scene.remove(c);
-                }
-            });
+            // Clean up old lights function
+            const cleanupLights = () => {
+                if (!scene) return;
+                const sunName = "RealTimeSun";
+                const ambientName = "GlobalAmbient";
+                // Create a separate array to avoid modifying while iterating
+                const toRemove: any[] = [];
+                scene.children.forEach((c: any) => {
+                    if (c.name === sunName || c.name === ambientName) {
+                        toRemove.push(c);
+                    }
+                });
+                toRemove.forEach(c => scene.remove(c));
+            };
+
+            // Initial cleanup
+            cleanupLights();
+
+            if (!mounted) return;
 
             // Bright Sun
             const sunLight = new THREE.DirectionalLight(0xffffff, 3.5);
-            sunLight.name = sunName;
+            sunLight.name = "RealTimeSun";
 
             const phi = (90 - sunLat) * (Math.PI / 180);
             const theta = (sunLng + 180) * (Math.PI / 180);
@@ -87,20 +91,34 @@ export default function GlobeMap() {
 
             // Strong Ambient Light
             const ambientLight = new THREE.AmbientLight(0xffffff, 1.25);
-            ambientLight.name = ambientName;
+            ambientLight.name = "GlobalAmbient";
             scene.add(ambientLight);
 
-            // Set initial POV - Focus on Puerto Rico
-            globe.pointOfView({
-                lat: 18.2208,
-                lng: -66.5901,
-                altitude: 0.15 // Closer zoom to see the island details
-            });
+            // Set initial POV - Focus on Puerto Rico if not already set? 
+            // Only set if this is first mount to avoid resetting user view on HMR?
+            // Actually, for now let's keep it but maybe we can check if controls have changed.
+            // But user asked to fix crashes, so let's stick to cleanup.
+
+            // cleanup on unmount
+            return () => {
+                mounted = false;
+                cleanupLights();
+            };
         }
     }, [currentUser]);
 
-    const handleGlobeClick = ({ lat, lng }: { lat: number; lng: number }) => {
+    const [screenCoords, setScreenCoords] = useState<{ x: number, y: number } | null>(null);
+
+    const handleGlobeClick = ({ lat, lng }: { lat: number; lng: number }, event: MouseEvent) => {
         setNewLocation({ lat, lng });
+        // Calculate screen coordinates from the event if available, or center
+        // Since react-globe.gl's onGlobeClick passes (coords, event), we can use event
+        if (event) {
+            setScreenCoords({ x: event.clientX, y: event.clientY });
+        } else {
+            // Fallback to center if no event (shouldn't happen on click)
+            setScreenCoords({ x: window.innerWidth / 2, y: window.innerHeight / 2 });
+        }
         setShowModal(true);
     };
 
@@ -594,9 +612,11 @@ export default function GlobeMap() {
                 showModal && newLocation && (
                     <CreateEventModal
                         location={newLocation}
+                        screenCoords={screenCoords}
                         onClose={() => {
                             setShowModal(false);
                             setNewLocation(null);
+                            setScreenCoords(null);
                             setDraftEventType('chill'); // Reset
                         }}
                         onTypeChange={setDraftEventType}
