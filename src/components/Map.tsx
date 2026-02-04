@@ -134,7 +134,7 @@ export default function Map() {
                                     >
                                         Chat
                                     </button>
-                                    {!connections.includes(user.id) && (
+                                    {!connections[user.id] && (
                                         <button
                                             onClick={() => sendRequest(user.id)}
                                             className="border border-purple-600 text-purple-600 px-3 py-1 rounded text-xs"
@@ -188,8 +188,8 @@ export default function Map() {
                 <button
                     onClick={() => setIsPlacing(!isPlacing)}
                     className={`p-4 rounded-full shadow-lg transition-all duration-300 transform ${isPlacing
-                            ? 'bg-red-500 rotate-45'
-                            : 'bg-[var(--ghost-primary)] hover:scale-105 active:scale-95'
+                        ? 'bg-red-500 rotate-45'
+                        : 'bg-[var(--ghost-primary)] hover:scale-105 active:scale-95'
                         }`}
                 >
                     <Plus size={24} color="white" strokeWidth={3} />
