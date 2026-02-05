@@ -69,6 +69,7 @@ export const MOCK_USERS: User[] = [
     {
         id: '1',
         name: 'Alex Rivera',
+        email: 'alex@ghostly.app',
         username: '@arivera',
         bio: 'Exploring the city. love photography 📸',
         avatar: AVATAR_COLORS[0],
@@ -81,6 +82,7 @@ export const MOCK_USERS: User[] = [
     {
         id: '2',
         name: 'Sam Chen',
+        email: 'sam@ghostly.app',
         username: '@samc',
         bio: 'Digital nomad looking for coffee spots ☕️',
         avatar: AVATAR_COLORS[1],
@@ -93,6 +95,7 @@ export const MOCK_USERS: User[] = [
     {
         id: '3',
         name: 'Jordan Taylor',
+        email: 'jordan@ghostly.app',
         username: '@jtaylor',
         bio: 'Here for the weekend! Any recommendations?',
         avatar: AVATAR_COLORS[2],
@@ -105,6 +108,7 @@ export const MOCK_USERS: User[] = [
     {
         id: '4',
         name: 'Casey Smith',
+        email: 'casey@ghostly.app',
         username: '@casey',
         bio: 'Just chilling 👻',
         avatar: AVATAR_COLORS[3],
@@ -117,6 +121,7 @@ export const MOCK_USERS: User[] = [
     {
         id: '5',
         name: 'Riley Quinn',
+        email: 'riley@ghostly.app',
         username: '@rquinn',
         bio: 'Student at the university nearby.',
         avatar: AVATAR_COLORS[7],
@@ -128,6 +133,7 @@ export const MOCK_USERS: User[] = [
     {
         id: '6',
         name: 'Kenji Sato',
+        email: 'kenji@ghostly.app',
         username: '@kenji_tokyo',
         bio: 'Tech wanderer in Shibuya 🇯🇵',
         avatar: AVATAR_COLORS[4],
@@ -141,6 +147,7 @@ export const MOCK_USERS: User[] = [
 
 export const CURRENT_USER: User = {
     id: 'me',
+    email: 'me@ghostly.app',
     name: 'Ghost User',
     username: '@ghostly_me',
     bio: 'Invisible but present.',

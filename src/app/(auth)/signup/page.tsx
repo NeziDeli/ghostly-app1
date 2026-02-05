@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { Ghost } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
+import { supabase } from "@/lib/supabase";
 
 export default function SignupPage() {
     const { login } = useStore();
@@ -14,14 +15,30 @@ export default function SignupPage() {
     const [password, setPassword] = useState("");
     const [isLoading, setIsLoading] = useState(false);
 
-    const handleSignup = (e?: React.FormEvent) => {
-        if (e) e.preventDefault();
+    const handleSignup = async (e: React.FormEvent) => {
+        e.preventDefault();
         setIsLoading(true);
-        setTimeout(() => {
-            // For mock purposes, signup is same as login
-            login();
-            router.push("/map");
-        }, 1200);
+
+        const { data, error } = await supabase.auth.signUp({
+            email,
+            password,
+        });
+
+        if (error) {
+            alert(error.message);
+            setIsLoading(false);
+        } else {
+            // If email confirmation is off, they will be logged in.
+            // If on, they need to check email.
+            // For this MVP/dev environment, we assume they might get logged in or need to check email.
+            // The AuthListener will handle the redirect if session exists.
+            if (data.session) {
+                router.push("/map");
+            } else {
+                alert("Check your email for the confirmation link!");
+                setIsLoading(false);
+            }
+        }
     };
 
     return (
@@ -36,16 +53,11 @@ export default function SignupPage() {
             {/* Background Decor - Softer */}
             <div className="absolute top-1/4 left-1/2 -translate-x-1/2 w-96 h-96 bg-[var(--ghost-accent)] opacity-10 blur-[120px] rounded-full pointer-events-none" />
 
-            <div className="relative z-10 flex flex-col items-center animate-fade-in w-full max-w-sm">
-                <div className="mb-6 relative group cursor-default">
-                    <div className="absolute inset-0 bg-[var(--ghost-primary)] blur-2xl opacity-20 rounded-full group-hover:opacity-30 transition-opacity" />
-                    <Ghost size={48} className="text-[var(--ghost-text)] relative z-10 drop-shadow-lg" />
+            <div className="w-full max-w-sm flex flex-col gap-6 animate-fade-in">
+                <div className="text-center">
+                    <h1 className="text-3xl font-black mb-2">Join the Realm</h1>
+                    <p className="text-[var(--ghost-text-muted)]">Create your spectral identity</p>
                 </div>
-
-                <h1 className="text-2xl font-bold mb-2 tracking-tight">Create Account</h1>
-                <p className="text-sm text-[var(--ghost-text-muted)] mb-8 max-w-[250px]">
-                    Join the realm to find others near you.
-                </p>
 
                 {/* Email Form */}
                 <form onSubmit={handleSignup} className="w-full flex flex-col gap-3 mb-6">
@@ -86,7 +98,7 @@ export default function SignupPage() {
                 </div>
 
                 <button
-                    onClick={() => handleSignup()}
+                    onClick={() => { }}
                     className="w-full bg-white text-black font-medium py-3.5 px-4 rounded-2xl flex items-center justify-center gap-3 hover:bg-gray-50 transition-all hover:scale-[1.02] active:scale-[0.98] shadow-md border border-gray-100"
                 >
                     <svg className="w-5 h-5" viewBox="0 0 24 24">

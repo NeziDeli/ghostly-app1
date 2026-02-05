@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef, useMemo } from "react";
 import dynamic from "next/dynamic";
 import { useStore } from "@/lib/store";
 import { useRouter } from "next/navigation";
@@ -39,9 +39,12 @@ export default function GlobeMap() {
             // Fix "Too to the right": Center the controls target
             controls.target.set(0, 0, 0);
 
-            // Zoom Limits: Allow closer zoom for "pristine" look, limit far zoom
-            controls.minDistance = 100.001; // Surface is 100. Allow 0.001 distance.
-            controls.maxDistance = 300; // Constrain zoom out so it fills screen more
+            // Zoom Limits & Damping for "Easier Control"
+            controls.minDistance = 101; // Slightly higher floor to prevent clipping/sensitive behavior
+            controls.maxDistance = 600; // Relaxed max distance
+            controls.enableDamping = true;
+            controls.dampingFactor = 0.1;
+            controls.zoomSpeed = 0.6; // Slower zoom for precision
             controls.enablePan = false;
             controls.autoRotate = false;
 
@@ -107,18 +110,83 @@ export default function GlobeMap() {
         }
     }, [currentUser]);
 
+    // Aggressive Initial Center Logic (Polling)
+    const hasCentered = useRef(false);
+    const attemptCount = useRef(0);
+
+    // Country Data for Hover Labels
+    const [countries, setCountries] = useState({ features: [] });
+    const [hoverD, setHoverD] = useState<any | null>(null);
+
+    useEffect(() => {
+        // Fetch low-res country borders for performance
+        fetch('https://raw.githubusercontent.com/vasturiano/react-globe.gl/master/example/datasets/ne_110m_admin_0_countries.geojson')
+            .then(res => res.json())
+            .then(setCountries);
+    }, []);
+
+    useEffect(() => {
+        if (!currentUser) return;
+
+
+        // Try immediately
+        if (globeEl.current) {
+            globeEl.current.pointOfView({
+                lat: currentUser.location.lat,
+                lng: currentUser.location.lng,
+                altitude: 1.5
+            }, 100);
+        }
+
+        const interval = setInterval(() => {
+            if (hasCentered.current || attemptCount.current > 5) { // Stop after 5 attempts
+                clearInterval(interval);
+                return;
+            }
+
+            if (globeEl.current) {
+                // Force view
+                globeEl.current.pointOfView({
+                    lat: currentUser.location.lat,
+                    lng: currentUser.location.lng,
+                    altitude: 1.5
+                }, 500);
+
+                attemptCount.current++;
+
+                // We consider it centered if we've fired this a few times
+                if (attemptCount.current > 3) {
+                    hasCentered.current = true;
+                }
+            }
+        }, 500); // Check every 500ms instead of 200ms
+
+        return () => clearInterval(interval);
+    }, [currentUser]);
+
     const [screenCoords, setScreenCoords] = useState<{ x: number, y: number } | null>(null);
 
     const handleGlobeClick = ({ lat, lng }: { lat: number; lng: number }, event: MouseEvent) => {
-        setNewLocation({ lat, lng });
-        // Calculate screen coordinates from the event if available, or center
-        // Since react-globe.gl's onGlobeClick passes (coords, event), we can use event
-        if (event) {
-            setScreenCoords({ x: event.clientX, y: event.clientY });
-        } else {
-            // Fallback to center if no event (shouldn't happen on click)
-            setScreenCoords({ x: window.innerWidth / 2, y: window.innerHeight / 2 });
+        // Restriction: One event per user
+        const existingEvent = events.find(e => e.hostId === currentUser?.id);
+        if (existingEvent) {
+            alert("You are already hosting an event! Please delete it before starting a new one.");
+            return;
         }
+
+        setNewLocation({ lat, lng });
+
+        // Auto-center the globe on the new pin
+        if (globeEl.current) {
+            globeEl.current.pointOfView({
+                lat,
+                lng,
+                altitude: 1.5 // Zoom out slightly to see context or keep current? Let's keep context.
+            }, 1000);
+        }
+
+        // We don't need screenCoords anymore for the modal since it's centered
+        setScreenCoords({ x: 0, y: 0 });
         setShowModal(true);
     };
 
@@ -134,59 +202,82 @@ export default function GlobeMap() {
     };
 
     // Combine users and events into HTML markers
-    const markers = [
-        ...nearbyUsers.map(user => ({
+    const markers = useMemo(() => {
+        const userMarkers = nearbyUsers.map(user => ({
             id: user.id,
             lat: user.location.lat,
             lng: user.location.lng,
             type: 'user',
             data: user,
             color: user.avatar
-        })),
-        ...events.map(event => ({
-            id: event.id,
-            lat: event.location.lat,
-            lng: event.location.lng,
-            type: 'event',
-            data: event,
-            color: '#FFD700' // Gold
-        })),
-        ...(currentUser ? [{
+        }));
+
+        const eventMarkers = events.map(event => {
+            // Resolve Host Name & Avatar
+            const host = nearbyUsers.find(u => u.id === event.hostId) || (currentUser?.id === event.hostId ? currentUser : null);
+            const hostName = host ? host.name : (event.hostId === 'system' ? 'Ghostly' : 'Unknown Soul');
+            const hostAvatar = host ? host.avatar : null;
+
+            return {
+                id: event.id,
+                lat: event.location.lat,
+                lng: event.location.lng,
+                type: 'event',
+                data: event,
+                hostName,
+                hostAvatar, // Pass avatar
+                color: '#FFD700' // Gold
+            };
+        });
+
+        const meMarker = currentUser ? [{
             id: currentUser.id,
             lat: currentUser.location.lat,
             lng: currentUser.location.lng,
             type: 'me',
             data: currentUser,
             color: '#8a7cff'
-        }] : []),
-        ...(newLocation ? [{
+        }] : [];
+
+        const draftMarker = newLocation ? [{
             id: 'draft-pin',
             lat: newLocation.lat,
             lng: newLocation.lng,
             type: 'draft',
             data: { title: 'New Event', type: draftEventType },
             color: '#ffffff'
-        }] : []),
-        ...MAJOR_CITIES.map(city => ({
+        }] : [];
+
+        const cityMarkers = MAJOR_CITIES.map(city => ({
             id: `city-${city.name}`,
             lat: city.lat,
             lng: city.lng,
             type: 'city',
             data: city,
             color: '#cccccc'
-        }))
-    ];
+        }));
+
+        return [
+            ...userMarkers,
+            ...eventMarkers,
+            ...meMarker,
+            ...draftMarker,
+            ...cityMarkers
+        ];
+    }, [nearbyUsers, events, currentUser, newLocation, draftEventType]);
 
     // Calculate Soulbound Tethers
-    const tetherLinks = currentUser ? nearbyUsers
-        .filter(u => connections[u.id] === 'soulbound')
-        .map(u => ({
-            startLat: currentUser.location.lat,
-            startLng: currentUser.location.lng,
-            endLat: u.location.lat,
-            endLng: u.location.lng,
-            color: 'rgba(255, 215, 0, 0.4)' // Gold
-        })) : [];
+    const tetherLinks = useMemo(() => {
+        return currentUser ? nearbyUsers
+            .filter(u => connections[u.id] === 'soulbound')
+            .map(u => ({
+                startLat: currentUser.location.lat,
+                startLng: currentUser.location.lng,
+                endLat: u.location.lat,
+                endLng: u.location.lng,
+                color: 'rgba(255, 215, 0, 0.4)' // Gold
+            })) : [];
+    }, [currentUser, nearbyUsers, connections]);
 
     return (
         <div className="h-full w-full absolute inset-0 bg-black flex items-center justify-center overflow-hidden">
@@ -195,9 +286,10 @@ export default function GlobeMap() {
                 rendererConfig={{
                     antialias: true,
                     alpha: true,
-                    preserveDrawingBuffer: true,
-                    logarithmicDepthBuffer: true, // Prevents Z-fighting at close zoom
-                    powerPreference: "high-performance"
+                    preserveDrawingBuffer: false, // Turn off for perf unless needed for screenshots
+                    logarithmicDepthBuffer: true,
+                    powerPreference: "high-performance",
+                    precision: "lowp" // Use lower precision for shaders to boost FPS
                 }}
                 // Use Satellite Tiles for "Pristine" Zoom Quality
                 globeImageUrl={null}
@@ -209,6 +301,20 @@ export default function GlobeMap() {
                 atmosphereColor="#8a7cff"
                 atmosphereAltitude={0.15}
                 onGlobeClick={handleGlobeClick}
+
+                // Country Layers
+                polygonsData={countries.features.filter((d: any) => d.properties.ISO_A2 !== 'AQ')} // Exclude Antarctica for aesthetics
+                polygonAltitude={0.01}
+                polygonCapColor={() => 'rgba(0,0,0,0)'} // Invisible cap
+                polygonSideColor={() => 'rgba(0,0,0,0)'} // Invisible side
+                polygonStrokeColor={() => '#333'} // Subtle borders
+                polygonLabel={({ properties: d }: any) => `
+                    <div style="background: rgba(0,0,0,0.85); color: #fff; padding: 4px 8px; border-radius: 4px; font-size: 12px; font-family: sans-serif; backdrop-filter: blur(4px); border: 1px solid rgba(255,255,255,0.2);">
+                        ${d.ADMIN}
+                    </div>
+                `}
+                onPolygonHover={setHoverD}
+                polygonsTransitionDuration={300}
 
                 // Tethers
                 arcsData={tetherLinks}
@@ -275,6 +381,18 @@ export default function GlobeMap() {
                             el.style.zIndex = "1000"; // Bring to front
                             const isAttending = d.data.attendees?.includes(currentUser?.id);
 
+                            // Host Avatar HTML
+                            const avatarHtml = d.hostAvatar ? `
+                                <div style="
+                                    width: 16px; height: 16px; 
+                                    border-radius: 50%; 
+                                    background-image: url('${d.hostAvatar}'); 
+                                    background-size: cover; 
+                                    background-position: center;
+                                    border: 1px solid rgba(255,255,255,0.5);
+                                "></div>
+                            ` : '';
+
                             el.innerHTML = `
                                 <div style="
                                     display: flex; flex-direction: column; align-items: start;
@@ -320,7 +438,11 @@ export default function GlobeMap() {
                                         ">✕</button>
                                     </div>
                                     
-                                    <h3 style="margin: 0 0 6px 0; font-size: 18px; font-weight: 700; color: white; line-height: 1.2;">${d.data.title}</h3>
+                                    <h3 style="margin: 0 0 4px 0; font-size: 18px; font-weight: 700; color: white; line-height: 1.2;">${d.data.title}</h3>
+
+                                    <div style="margin-bottom: 8px; font-size: 11px; color: rgba(255,255,255,0.5); font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; display: flex; align-items: center; gap: 4px;">
+                                        By ${avatarHtml} ${d.hostName}
+                                    </div>
                                     
                                     <p style="margin: 0 0 16px 0; font-size: 13px; color: rgba(255,255,255,0.7); line-height: 1.4;">
                                         ${d.data.hostId === 'system' ? 'Public Space • Always Open' : (d.data.city ? d.data.city : d.data.description || 'Join the conversation.')}
@@ -568,7 +690,7 @@ export default function GlobeMap() {
             {/* Floating Navigation Dock */}
             <div className="absolute top-6 left-1/2 -translate-x-1/2 z-[5000] flex items-center gap-2 p-1.5 rounded-full bg-black/40 backdrop-blur-md border border-white/10 shadow-2xl animate-fade-in-down">
                 {[
-                    { href: "/feed", icon: Users, label: "Nearby" },
+                    { href: "/feed", icon: Users, label: "Spirits" },
                     { href: "/messages", icon: MessageSquare, label: "Chats" },
                     { href: "/profile", icon: User, label: "Profile" }
                 ].map((item) => (

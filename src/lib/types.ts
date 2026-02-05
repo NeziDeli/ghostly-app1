@@ -3,6 +3,7 @@ export type ConnectionStatus = 'none' | 'pending' | 'connected';
 
 export interface User {
     id: string;
+    email: string;
     name: string;
     username: string;
     bio: string;
@@ -11,10 +12,13 @@ export interface User {
         lat: number;
         lng: number;
     };
+    city?: string; // User-defined display location (e.g. "San Juan, PR")
     status: UserStatus;
     lastActive: string;
     interests: string[];
     relationshipTier?: 'normal' | 'soulbound';
+    blockedUsers?: string[]; // IDs of users blocked by this user
+    isVerified?: boolean; // True if accepted community guidelines
 }
 
 export interface Message {
@@ -73,7 +77,7 @@ export interface AppState {
     sendRequest: (userId: string) => void;
     acceptRequest: (userId: string, tier?: 'normal' | 'soulbound') => void;
     sendMessage: (receiverId: string, content: string, type?: 'text' | 'summon') => void;
-    createEvent: (event: Omit<Event, 'id' | 'hostId'>) => void;
+    createEvent: (event: any) => Promise<void>;
     deleteEvent: (eventId: string) => void;
     addStory: (story: Omit<Story, 'id' | 'userId' | 'timestamp'>) => void;
 

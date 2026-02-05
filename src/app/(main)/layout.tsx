@@ -14,7 +14,7 @@ export default function MainLayout({
     return (
         <AuthGuard>
             <div className="ghost-fog" />
-            <div className={!isMap ? "pb-24" : ""}>
+            <div className={`min-h-screen ${!isMap ? "pb-24" : "h-screen overflow-hidden"}`}>
                 {children}
             </div>
         </AuthGuard>

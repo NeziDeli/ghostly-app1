@@ -3,9 +3,10 @@ import { useStore } from "@/lib/store";
 
 interface PrivacyModalProps {
     onClose: () => void;
+    onOpenGuidelines: () => void;
 }
 
-export default function PrivacyModal({ onClose }: PrivacyModalProps) {
+export default function PrivacyModal({ onClose, onOpenGuidelines }: PrivacyModalProps) {
     const { currentUser, toggleVisibility } = useStore();
 
     if (!currentUser) return null;
@@ -85,9 +86,9 @@ export default function PrivacyModal({ onClose }: PrivacyModalProps) {
                             <a href="#" className="block p-3 rounded-lg bg-white/5 hover:bg-white/10 text-sm text-gray-300 hover:text-white transition-colors">
                                 🆘 Emergency Services
                             </a>
-                            <a href="#" className="block p-3 rounded-lg bg-white/5 hover:bg-white/10 text-sm text-gray-300 hover:text-white transition-colors">
+                            <button onClick={onOpenGuidelines} className="w-full text-left block p-3 rounded-lg bg-white/5 hover:bg-white/10 text-sm text-gray-300 hover:text-white transition-colors">
                                 📖 Community Guidelines
-                            </a>
+                            </button>
                             <a href="#" className="block p-3 rounded-lg bg-white/5 hover:bg-white/10 text-sm text-gray-300 hover:text-white transition-colors">
                                 🛡️ How to report an incident
                             </a>

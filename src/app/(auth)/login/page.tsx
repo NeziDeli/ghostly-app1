@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { Ghost } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
+import { supabase } from "@/lib/supabase";
 
 export default function LoginPage() {
     const { login } = useStore();
@@ -14,13 +15,23 @@ export default function LoginPage() {
     const [password, setPassword] = useState("");
     const [isLoading, setIsLoading] = useState(false);
 
-    const handleLoginKey = (e: React.FormEvent) => {
+    const handleLoginKey = async (e: React.FormEvent) => {
         e.preventDefault();
         setIsLoading(true);
-        setTimeout(() => {
-            login();
+
+        const { data, error } = await supabase.auth.signInWithPassword({
+            email,
+            password
+        });
+
+        if (error) {
+            alert(error.message); // Simple alert for now
+            setIsLoading(false);
+        } else {
+            // Login handled by subscription in layout/store
+            // But we can force push for better UX
             router.push("/map");
-        }, 1200);
+        }
     };
 
     const handleGoogleLogin = () => {
@@ -91,9 +102,10 @@ export default function LoginPage() {
 
                 <button
                     onClick={handleGoogleLogin}
-                    className="w-full bg-white text-black font-medium py-3.5 px-4 rounded-2xl flex items-center justify-center gap-3 hover:bg-gray-50 transition-all hover:scale-[1.02] active:scale-[0.98] shadow-md border border-gray-100"
+                    className="w-full bg-white text-gray-900 font-bold py-2.5 px-4 rounded-xl flex items-center justify-center gap-3 hover:bg-gray-50 transition-all hover:scale-[1.02] active:scale-[0.98] shadow-lg shadow-black/10 border border-gray-200 hover:border-blue-300 relative overflow-hidden group"
                 >
-                    <svg className="w-5 h-5" viewBox="0 0 24 24">
+                    <div className="absolute inset-0 bg-blue-50/0 group-hover:bg-blue-50/10 transition-colors" />
+                    <svg className="w-5 h-5 relative z-10" viewBox="0 0 24 24">
                         <path
                             d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
                             fill="#4285F4"
@@ -111,7 +123,7 @@ export default function LoginPage() {
                             fill="#EA4335"
                         />
                     </svg>
-                    Google
+                    <span className="relative z-10 text-sm">Sign in with Google</span>
                 </button>
 
                 <div className="mt-8 text-sm text-[var(--ghost-text-muted)]">

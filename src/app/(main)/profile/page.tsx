@@ -2,17 +2,19 @@
 
 import { useState } from "react";
 import { useStore } from "@/lib/store";
-import { Settings, Shield, Ghost, LogOut, MapPin, Edit2, Check, X, UserPlus, Heart, Zap } from "lucide-react";
+import { Settings, Shield, Ghost, LogOut, MapPin, Edit2, Check, X, UserPlus, Heart, Zap, Camera, BookOpen, BadgeCheck } from "lucide-react";
 import SettingsModal from "./SettingsModal";
 import PrivacyModal from "./PrivacyModal";
+import CommunityGuidelinesModal from "./CommunityGuidelinesModal";
 import { User } from "@/lib/types";
 
 export default function ProfilePage() {
-    const { currentUser, toggleVisibility, setUser, logout, requests, connections, acceptRequest, nearbyUsers } = useStore();
+    const { currentUser, toggleVisibility, setUser, updateProfile, logout, requests, connections, acceptRequest, nearbyUsers } = useStore();
     const [isEditing, setIsEditing] = useState(false);
     const [formData, setFormData] = useState<User | null>(null);
     const [showSettings, setShowSettings] = useState(false);
     const [showPrivacy, setShowPrivacy] = useState(false);
+    const [showGuidelines, setShowGuidelines] = useState(false);
 
     if (!currentUser) return null;
 
@@ -28,10 +30,23 @@ export default function ProfilePage() {
 
     const handleSave = () => {
         if (formData) {
-            setUser(formData);
+            updateProfile(formData);
         }
         setIsEditing(false);
         setFormData(null);
+    };
+
+    const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (file) {
+            const reader = new FileReader();
+            reader.onloadend = () => {
+                if (typeof reader.result === 'string' && formData) {
+                    setFormData({ ...formData, avatar: reader.result });
+                }
+            };
+            reader.readAsDataURL(file);
+        }
     };
 
     return (
@@ -64,7 +79,40 @@ export default function ProfilePage() {
                 {isEditing && formData ? (
                     <div className="flex flex-col items-center gap-4 w-full max-w-xs animate-in fade-in slide-in-from-top-4 duration-300">
                         <div className="flex flex-col items-center gap-2 w-full">
+                            {/* Live Preview */}
+                            <div className="relative mb-2">
+                                {formData.avatar.startsWith('http') || formData.avatar.startsWith('data:') ? (
+                                    <img
+                                        src={formData.avatar}
+                                        alt="Preview"
+                                        style={{ width: '96px', height: '96px', objectFit: 'cover', borderRadius: '50%' }}
+                                        className="border-4 border-[var(--ghost-surface)] shadow-xl"
+                                    />
+                                ) : (
+                                    <div
+                                        style={{ width: '96px', height: '96px', borderRadius: '50%', backgroundColor: formData.avatar }}
+                                        className="flex items-center justify-center text-3xl font-bold text-white border-4 border-[var(--ghost-surface)] shadow-xl"
+                                    >
+                                        {formData.name?.[0] || '?'}
+                                    </div>
+                                )}
+                            </div>
+
                             <label className="text-xs text-[var(--ghost-text-muted)] uppercase tracking-wider">Avatar Style</label>
+
+                            {/* Upload Button */}
+                            <div className="mb-2 w-full flex justify-center">
+                                <label className="cursor-pointer bg-[var(--ghost-surface)] hover:bg-[var(--ghost-surface-hover)] border border-[var(--ghost-border)] rounded-lg px-4 py-2 flex items-center gap-2 transition-colors group">
+                                    <Camera size={18} className="text-[var(--ghost-primary)] group-hover:scale-110 transition-transform" />
+                                    <span className="text-sm font-bold">Upload Photo</span>
+                                    <input
+                                        type="file"
+                                        accept="image/*"
+                                        className="hidden"
+                                        onChange={handleFileChange}
+                                    />
+                                </label>
+                            </div>
 
                             {/* Color Picker */}
                             <div className="flex gap-2 flex-wrap justify-center mb-2">
@@ -78,19 +126,7 @@ export default function ProfilePage() {
                                 ))}
                             </div>
 
-                            {/* Custom URL Toggle */}
-                            <details className="w-full">
-                                <summary className="text-xs text-[var(--ghost-primary)] cursor-pointer text-center list-none hover:underline mb-2">
-                                    Use Custom Image URL
-                                </summary>
-                                <input
-                                    type="text"
-                                    className="w-full bg-[var(--ghost-surface)] border border-[var(--ghost-border)] rounded-lg p-2 text-sm text-white focus:border-[var(--ghost-primary)] outline-none animate-fade-in"
-                                    value={formData.avatar.startsWith('#') ? '' : formData.avatar}
-                                    onChange={(e) => setFormData({ ...formData, avatar: e.target.value })}
-                                    placeholder="https://example.com/image.jpg"
-                                />
-                            </details>
+
                         </div>
                         <div className="flex flex-col items-center gap-2 w-full">
                             <label className="text-xs text-[var(--ghost-text-muted)] uppercase tracking-wider">Name</label>
@@ -99,6 +135,26 @@ export default function ProfilePage() {
                                 className="w-full bg-[var(--ghost-surface)] border border-[var(--ghost-border)] rounded-lg p-2 text-center font-bold text-white focus:border-[var(--ghost-primary)] outline-none"
                                 value={formData.name}
                                 onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                            />
+                        </div>
+                        <div className="flex flex-col items-center gap-2 w-full">
+                            <label className="text-xs text-[var(--ghost-text-muted)] uppercase tracking-wider">Username</label>
+                            <input
+                                type="text"
+                                className="w-full bg-[var(--ghost-surface)] border border-[var(--ghost-border)] rounded-lg p-2 text-center text-white focus:border-[var(--ghost-primary)] outline-none font-mono text-sm"
+                                value={formData.username}
+                                onChange={(e) => setFormData({ ...formData, username: e.target.value })}
+                                placeholder="@username"
+                            />
+                        </div>
+                        <div className="flex flex-col items-center gap-2 w-full">
+                            <label className="text-xs text-[var(--ghost-text-muted)] uppercase tracking-wider">Based In</label>
+                            <input
+                                type="text"
+                                className="w-full bg-[var(--ghost-surface)] border border-[var(--ghost-border)] rounded-lg p-2 text-center text-white focus:border-[var(--ghost-primary)] outline-none text-sm"
+                                value={formData.city || ''}
+                                onChange={(e) => setFormData({ ...formData, city: e.target.value })}
+                                placeholder="City, Country (e.g. San Juan, PR)"
                             />
                         </div>
                         <div className="flex flex-col items-center gap-2 w-full">
@@ -115,23 +171,35 @@ export default function ProfilePage() {
                 ) : (
                     <>
                         <div className="relative group">
-                            {currentUser.avatar.startsWith('http') ? (
+                            {currentUser.avatar.startsWith('http') || currentUser.avatar.startsWith('data:') ? (
                                 <img
                                     src={currentUser.avatar}
                                     alt={currentUser.name}
-                                    className="w-24 h-24 rounded-full object-cover border-4 border-[var(--ghost-surface)] shadow-xl mb-4"
+                                    style={{ width: '96px', height: '96px', objectFit: 'cover', borderRadius: '50%' }}
+                                    className="border-4 border-[var(--ghost-surface)] shadow-xl mb-4"
                                 />
                             ) : (
                                 <div
-                                    className="w-24 h-24 rounded-full flex items-center justify-center text-3xl font-bold text-white mb-4 border-4 border-[var(--ghost-surface)] shadow-xl"
-                                    style={{ backgroundColor: currentUser.avatar }}
+                                    style={{ width: '96px', height: '96px', borderRadius: '50%', backgroundColor: currentUser.avatar }}
+                                    className="flex items-center justify-center text-3xl font-bold text-white mb-4 border-4 border-[var(--ghost-surface)] shadow-xl"
                                 >
                                     {currentUser.name[0]}
                                 </div>
                             )}
                         </div>
 
-                        <h1 className="text-2xl font-bold">{currentUser.name}</h1>
+                        <div className="flex items-center gap-2 justify-center">
+                            <h1 className="text-2xl font-bold">{currentUser.name}</h1>
+                            {currentUser.isVerified && (
+                                <BadgeCheck size={24} className="text-blue-400 fill-blue-400/10" />
+                            )}
+                        </div>
+                        {currentUser.city && (
+                            <div className="flex items-center gap-1.5 text-[var(--ghost-text-muted)] text-sm mb-2 px-3 py-1 bg-[var(--ghost-surface)] rounded-full">
+                                <MapPin size={12} className="text-[var(--ghost-primary)]" />
+                                <span>{currentUser.city}</span>
+                            </div>
+                        )}
                         <p className="text-[var(--ghost-text-muted)] text-sm mb-2">{currentUser.username}</p>
                         {currentUser.bio && (
                             <p className="text-center text-sm max-w-xs text-gray-300 leading-relaxed italic">
@@ -143,38 +211,7 @@ export default function ProfilePage() {
             </div>
 
             <div className="flex flex-col gap-4">
-                {/* Visibility Card */}
-                <div className="glass-panel p-6">
-                    <div className="flex items-center justify-between mb-4">
-                        <div className="flex items-center gap-3">
-                            <div className={`p-2 rounded-lg ${currentUser.status === 'online' ? 'bg-[var(--status-online)] text-black' : 'bg-[var(--ghost-text-muted)]'}`}>
-                                <Ghost size={24} />
-                            </div>
-                            <div>
-                                <h3 className="font-bold">Ghost Mode</h3>
-                                <p className="text-sm text-[var(--ghost-text-muted)]">
-                                    {currentUser.status === 'online' ? 'You are visible' : 'You are hidden'}
-                                </p>
-                            </div>
-                        </div>
-
-                        <button
-                            onClick={toggleVisibility}
-                            className={`w-12 h-6 rounded-full relative transition-colors duration-300 ${currentUser.status === 'online' ? 'bg-[var(--ghost-primary)]' : 'bg-[var(--ghost-surface)]'
-                                }`}
-                        >
-                            <div className={`w-4 h-4 rounded-full bg-white absolute top-1 transition-transform duration-300 ${currentUser.status === 'online' ? 'left-7' : 'left-1'
-                                }`} />
-                        </button>
-                    </div>
-
-                    <p className="text-xs text-[var(--ghost-text-muted)] mt-2">
-                        When hidden, you assume a ghostly form. You can see others, but they cannot see you unless you interact.
-                    </p>
-                    <p className="text-xs text-[var(--ghost-text-muted)] mt-2">
-                        When hidden, you assume a ghostly form. You can see others, but they cannot see you unless you interact.
-                    </p>
-                </div>
+                {/* Visibility Card Removed by User Request */}
 
                 {/* Friend Requests */}
                 {requests.incoming.length > 0 && (
@@ -184,7 +221,7 @@ export default function ProfilePage() {
                                 <UserPlus size={24} className="text-[var(--ghost-secondary)]" />
                             </div>
                             <div>
-                                <h3 className="font-bold">Friend Requests</h3>
+                                <h3 className="font-bold">Spirit Requests</h3>
                                 <p className="text-sm text-[var(--ghost-text-muted)]">
                                     Spirits seeking connection
                                 </p>
@@ -222,63 +259,7 @@ export default function ProfilePage() {
                     </div>
                 )}
 
-                {/* Connections (Soulbind Management) */}
-                <div className="glass-panel p-6">
-                    <div className="flex items-center gap-3 mb-4">
-                        <div className="p-2 rounded-lg bg-[var(--ghost-surface)]">
-                            <Heart size={24} className="text-pink-400" />
-                        </div>
-                        <div>
-                            <h3 className="font-bold">Your Connections</h3>
-                            <p className="text-sm text-[var(--ghost-text-muted)]">
-                                Manage your spiritual bonds
-                            </p>
-                        </div>
-                    </div>
 
-                    <div className="flex flex-col gap-3">
-                        {Object.entries(connections).length === 0 ? (
-                            <p className="text-center text-sm text-[var(--ghost-text-muted)] py-4">No connections yet.</p>
-                        ) : (
-                            Object.entries(connections).map(([userId, tier]) => {
-                                const friend = nearbyUsers.find(u => u.id === userId);
-                                if (!friend) return null;
-                                const isSoulbound = tier === 'soulbound';
-
-                                return (
-                                    <div key={userId} className={`flex items-center justify-between p-3 rounded-xl border transition-all ${isSoulbound ? 'bg-yellow-400/5 border-yellow-400/30' : 'bg-[var(--ghost-bg)] border-[var(--ghost-border)]'}`}>
-                                        <div className="flex items-center gap-3">
-                                            <div
-                                                className="w-10 h-10 rounded-full flex items-center justify-center font-bold text-white text-sm"
-                                                style={{ backgroundColor: friend.avatar }}
-                                            >
-                                                {friend.name[0]}
-                                            </div>
-                                            <div>
-                                                <span className="font-bold text-sm block">{friend.name}</span>
-                                                <span className={`text-[10px] uppercase tracking-wider font-bold ${isSoulbound ? 'text-yellow-400' : 'text-[var(--ghost-text-muted)]'}`}>
-                                                    {isSoulbound ? 'Soulbound' : 'Friend'}
-                                                </span>
-                                            </div>
-                                        </div>
-                                        <button
-                                            onClick={() => {
-                                                // Toggle Tier (In a real app, maybe a prompt)
-                                                // Accessing store directly? using acceptRequest to update tier or need a new action?
-                                                // acceptRequest overwrites, so we can use it to 'upgrade'
-                                                acceptRequest(userId, isSoulbound ? 'normal' : 'soulbound');
-                                            }}
-                                            className={`p-2 rounded-lg transition-all ${isSoulbound ? 'bg-yellow-400 text-black shadow-[0_0_10px_rgba(255,215,0,0.4)]' : 'bg-[var(--ghost-surface)] text-[var(--ghost-text-muted)] hover:text-white'}`}
-                                            title={isSoulbound ? "Unbind" : "Soulbind"}
-                                        >
-                                            <Zap size={16} fill={isSoulbound ? "currentColor" : "none"} />
-                                        </button>
-                                    </div>
-                                );
-                            })
-                        )}
-                    </div>
-                </div>
                 <div className="glass-panel p-6">
                     <div className="flex items-center gap-3 mb-4">
                         <div className="p-2 rounded-lg bg-[var(--ghost-surface)]">
@@ -343,6 +324,14 @@ export default function ProfilePage() {
                     </button>
 
                     <button
+                        onClick={() => setShowGuidelines(true)}
+                        className="w-full flex items-center gap-4 p-4 hover:bg-[var(--ghost-surface-hover)] rounded-lg transition-colors text-left"
+                    >
+                        <BookOpen size={20} className="text-[var(--ghost-text)]" />
+                        <span>Community Guidelines</span>
+                    </button>
+
+                    <button
                         onClick={logout}
                         className="w-full flex items-center gap-4 p-4 hover:bg-[var(--ghost-surface-hover)] rounded-lg transition-colors text-left"
                     >
@@ -354,7 +343,14 @@ export default function ProfilePage() {
 
             {/* Modals */}
             {showSettings && <SettingsModal onClose={() => setShowSettings(false)} />}
-            {showPrivacy && <PrivacyModal onClose={() => setShowPrivacy(false)} />}
+            {showPrivacy && <PrivacyModal
+                onClose={() => setShowPrivacy(false)}
+                onOpenGuidelines={() => {
+                    setShowPrivacy(false);
+                    setShowGuidelines(true);
+                }}
+            />}
+            {showGuidelines && <CommunityGuidelinesModal onClose={() => setShowGuidelines(false)} />}
         </div>
     );
 }
