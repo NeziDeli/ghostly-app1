@@ -10,18 +10,23 @@ export default function FeedPage() {
     const [search, setSearch] = useState("");
 
     // Filter users (Friends Only)
+    // Unified Search & Filter Logic
     const filteredUsers = nearbyUsers.filter(user => {
-        // Must be a friend or soulbound
-        const isFriend = connections[user.id];
-        if (!isFriend) return false;
+        // 1. Always exclude self
+        if (user.id === currentUser?.id) return false;
 
-        if (!search) return true;
-        const term = search.toLowerCase();
-        return (
-            user.name.toLowerCase().includes(term) ||
-            user.username.toLowerCase().includes(term) ||
-            user.interests.some(i => i.toLowerCase().includes(term))
-        );
+        // 2. If searching, search EVERYTHING (Global/Nearby) to find new friends
+        if (search.trim()) {
+            const term = search.toLowerCase();
+            return (
+                user.name.toLowerCase().includes(term) ||
+                (user.username && user.username.toLowerCase().includes(term)) ||
+                user.interests.some(i => i.toLowerCase().includes(term))
+            );
+        }
+
+        // 3. If NOT searching, show only Friends (My Spirits)
+        return !!connections[user.id];
     });
 
     return (

@@ -299,7 +299,6 @@ export const useStore = create<Store>((set) => ({
                     // Use the aliased columns
                     location: { lat: u.lat || (40.7128 + Math.random() * 0.01), lng: u.lng || (-74.0060 + Math.random() * 0.01) },
                     status: u.status,
-                    status: u.status,
                     city: u.city,
                     lastActive: '',
                     interests: []
@@ -319,9 +318,6 @@ export const useStore = create<Store>((set) => ({
                         id: newUser.id,
                         email: newUser.email,
                         name: newUser.name,
-                        username: newUser.username,
-                        bio: newUser.bio,
-                        avatar: newUser.avatar_url,
                         username: newUser.username,
                         bio: newUser.bio,
                         avatar: newUser.avatar_url,
