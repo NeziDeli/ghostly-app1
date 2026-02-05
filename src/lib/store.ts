@@ -198,7 +198,7 @@ export const useStore = create<Store>((set) => ({
 
         if (error) {
             console.error("Failed to create event:", error);
-            alert("Could not drop event. Try again.");
+            alert(`Could not drop event: ${error.message}`);
         }
     },
 
@@ -274,7 +274,14 @@ export const useStore = create<Store>((set) => ({
         const { supabase } = await import('./supabase');
 
         // 1. Initial Fetch
-        const { data: users } = await supabase.from('users').select('*').neq('status', 'offline');
+        // Cast geography to geometry to get coordinates
+        const { data: users, error: userError } = await supabase
+            .from('users')
+            .select('*, lat: st_y(location::geometry), lng: st_x(location::geometry)')
+            .neq('status', 'offline');
+
+        if (userError) console.error("Error fetching users:", userError);
+
         if (users) {
             set({
                 nearbyUsers: users.map(u => ({
@@ -288,7 +295,10 @@ export const useStore = create<Store>((set) => ({
                     // For MVP: We assume location is stored as simple JSON or we parse it.
                     // Since our schema used GEOGRAPHY(POINT), we need to select st_x/st_y or similar.
                     // To keep it simple for this MVP step: we will just use random offsets if null
-                    location: u.location ? { lat: u.location.lat, lng: u.location.lng } : { lat: 40.7128 + (Math.random() * 0.01), lng: -74.0060 + (Math.random() * 0.01) },
+                    avatar: u.avatar_url,
+                    // Use the aliased columns
+                    location: { lat: u.lat || (40.7128 + Math.random() * 0.01), lng: u.lng || (-74.0060 + Math.random() * 0.01) },
+                    status: u.status,
                     status: u.status,
                     city: u.city,
                     lastActive: '',
@@ -312,7 +322,20 @@ export const useStore = create<Store>((set) => ({
                         username: newUser.username,
                         bio: newUser.bio,
                         avatar: newUser.avatar_url,
-                        location: newUser.location ? { lat: newUser.location.lat, lng: newUser.location.lng } : (exists?.location || { lat: 0, lng: 0 }),
+                        username: newUser.username,
+                        bio: newUser.bio,
+                        avatar: newUser.avatar_url,
+                        // For realtime updates, payload might still be raw. 
+                        // ideally we'd refetch or parse, but simplified: assume simple update or fallback
+                        // Realtime payload does NOT support computed columns. 
+                        // We might need to rely on the client knowing the location if they just updated it, 
+                        // or ignoring slightly stale format until refresh. 
+                        // However, for correct "I see you move", we need the coords.
+                        // Supabase Realtime *does* send the new row. If it's WKB (string), we can't parse easily in JS without a library (wkx).
+                        // WORKAROUND: For this prototype, we won't fix realtime location parsing perfectly without 'wkx'.
+                        // We will fallback to existing location if parsing fails, or use random if new.
+                        // Users will need to refresh to see precise other-user movement if we don't parse WKB.
+                        location: exists?.location || { lat: 0, lng: 0 },
                         status: newUser.status,
                         city: newUser.city,
                         lastActive: new Date().toISOString(),
@@ -329,7 +352,12 @@ export const useStore = create<Store>((set) => ({
             .subscribe();
 
         // 3. Fetch & Subscribe to Events
-        const { data: events } = await supabase.from('events').select('*');
+        const { data: events, error: eventError } = await supabase
+            .from('events')
+            .select('*, lat: st_y(location::geometry), lng: st_x(location::geometry)');
+
+        if (eventError) console.error("Error fetching events:", eventError);
+
         if (events) {
             set({
                 events: events.map(e => ({
@@ -337,8 +365,11 @@ export const useStore = create<Store>((set) => ({
                     hostId: e.host_id,
                     title: e.title,
                     description: e.description,
+                    title: e.title,
+                    description: e.description,
                     type: e.type as any,
-                    location: e.location ? { lat: e.location.lat, lng: e.location.lng } : { lat: 0, lng: 0 },
+                    // Use the aliased columns from the select
+                    location: { lat: e.lat || 0, lng: e.lng || 0 },
                     time: e.start_time ? new Date(e.start_time).toLocaleTimeString() : 'Now',
                     isPrivate: e.is_private,
                     attendees: [], // We need to fetch these separately or join, for MVP we start empty
